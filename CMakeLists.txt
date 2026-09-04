@@ -5,6 +5,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_executable(shell src/main.cpp)
+add_executable(shell 
+    src/main.cpp
+    src/service.cpp
+    src/builtins.cpp
+)
 
 target_include_directories(shell PRIVATE include)

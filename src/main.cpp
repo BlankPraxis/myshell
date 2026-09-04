@@ -1,7 +1,12 @@
+#include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <string>
+#include <system_error>
 #include <vector>
-#include <cstdlib>
+
+#include "status.hpp"
+#include "service.hpp"
 
 std::vector<std::string> parse(std::string& str, char delimeter=' ')
 {
@@ -39,25 +44,12 @@ std::vector<std::string> parse(std::string& str, char delimeter=' ')
     return tokens;
 }
 
-void exit(std::vector<std::string>& args)
-{
-    std::exit(0);
-}
-
-void echo(std::vector<std::string>& args)
-{
-    for (const auto& element: args)
-    {
-        std::cout << element << " ";
-    }
-    std::cout << std::endl;
-}
-
 int main()
 {
     while (true)
-    {
-        std::cout << "$ " << std::flush;
+    {   
+        std::filesystem::path path { std::filesystem::current_path() };
+        std::cout << path.string() << "$ " << std::flush;
         std::string input{};
 
         if (!std::getline(std::cin, input))
@@ -70,13 +62,14 @@ int main()
         std::string command_name { parsed_command[0] };
         std::vector<std::string> command_args(parsed_command.begin() + 1, parsed_command.end());
 
-        if (command_name == "exit")
+        shell::Status state { shell::direct_to_command(command_name, command_args) };
+        if (state == shell::Status::EXIT)
         {
-            exit(command_args);
+            return EXIT_SUCCESS;
         }
-        else if (command_name == "echo")
+        if (state == shell::Status::ERROR)
         {
-            echo(command_args);
+            return EXIT_FAILURE;
         }
     }
     return 0;
