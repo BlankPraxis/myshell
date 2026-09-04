@@ -1,3 +1,5 @@
+#include "service.hpp"
+
 #include <algorithm>
 #include <iostream>
 #include <string>
