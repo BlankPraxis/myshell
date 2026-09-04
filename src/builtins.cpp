@@ -10,6 +10,8 @@
 
 #include "status.hpp"
 
+namespace fs = std::filesystem;
+
 namespace shell
 {
     std::vector<std::string> builtin_commands()
@@ -34,7 +36,11 @@ namespace shell
 
     shell::Status echo(std::vector<std::string>& args)
     {
-        if (args.empty()) return shell::Status::CONTINUE;
+        if (args.empty()) 
+        {
+            std::cout << '\n';
+            return shell::Status::CONTINUE;
+        }
         
         std::cout << args[0];
         for (std::size_t i { 1 }; i < args.size(); ++i)
@@ -47,7 +53,7 @@ namespace shell
 
     shell::Status pwd()
     {
-        std::cout << std::filesystem::current_path().string() << '\n';
+        std::cout << fs::current_path().string() << '\n';
         return shell::Status::CONTINUE;
     }
 
@@ -65,16 +71,16 @@ namespace shell
         }
         if (path.empty())
         {
-            std::filesystem::path new_dir { args[0] };
-            std::filesystem::current_path(new_dir, ec);
+            fs::path new_dir { args[0] };
+            fs::current_path(new_dir, ec);
             if (ec)
             {
                 std::cerr << "shell: cd: " << args[0] << ": No such file or directory\n";
             }
             return shell::Status::CONTINUE;
         }
-        std::filesystem::path new_dir { path };
-        std::filesystem::current_path(new_dir, ec);
+        fs::path new_dir { path };
+        fs::current_path(new_dir, ec);
         if (ec)
         {
             std::cerr << "shell: cd: " << args[0] << ": No such file or directory\n";
