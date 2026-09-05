@@ -10,6 +10,7 @@ add_executable(shell
     src/service.cpp
     src/builtins.cpp
     src/parser.cpp
+    src/executables.cpp
 )
 
 target_include_directories(shell PRIVATE include)

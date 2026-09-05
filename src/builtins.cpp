@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "status.hpp"
+#include "executables.hpp"
 
 namespace fs = std::filesystem;
 
@@ -100,7 +101,12 @@ namespace shell
         }
         else
         {
-            // find eternal command
+            auto executable { shell::find_executable(args[0]) };
+            if (executable)
+            {
+                std::cout << args[0] << " is " << executable->string() << '\n';
+                return shell::Status::CONTINUE;
+            }
         }
 
         std::cout << "shell: type: " << args[0] << ": not found\n";

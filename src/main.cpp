@@ -12,6 +12,46 @@
 
 namespace fs = std::filesystem;
 
+void debug(const char *test_string, std::vector<std::string> test_vect, int test_num)
+{
+    std::cout << "test " << test_num << ": " << test_string << '\n';
+    if (test_vect.empty())
+    {
+        std::cout << "expected [\"\"]\n";
+    }
+    std::vector<std::string> output { shell::parse_path(test_string) };
+    if (output.empty())
+    {
+        std::cout << "actual   [\"\"]\n";
+        std::cout << "passed\n";
+        return;
+    }
+
+    std::cout << "expected [" << '\"' << test_vect[0] << '\"';
+    for (size_t i { 1 }; i < test_vect.size(); ++i)
+    {
+        std::cout << ", " << '\"' << test_vect[i] << '\"'; 
+    }
+    std::cout << "]\n";
+
+
+    std::cout << "actual   [" << '\"' << output[0] << '\"';
+    for (size_t i { 1 }; i < output.size(); ++i)
+    {
+        std::cout << ", " << '\"' << output[i] << '\"'; 
+    }
+    std::cout << "]\n";
+
+    if (test_vect == shell::parse_path(test_string))
+    {
+        std::cout << "passed\n";
+    }
+    else
+    {
+        std::cout << "failed\n";
+    }
+}
+
 int main()
 {
     while (true)
@@ -35,6 +75,10 @@ int main()
         }
 
         std::vector<std::string> parsed_command { shell::parse_command(input) };
+        if (parsed_command.empty())
+        {
+            continue;
+        }
         std::string command_name { parsed_command[0] };
         std::vector<std::string> command_args(parsed_command.begin() + 1, parsed_command.end());
 

@@ -7,6 +7,7 @@
 
 #include "builtins.hpp"
 #include "status.hpp"
+#include "executables.hpp"
 
 namespace shell
 {
@@ -38,7 +39,11 @@ namespace shell
         }
         else
         {
-            // didnt find a builtin so attempt to find external command
+            auto executable { shell::find_executable(command_name) };
+            if (executable)
+            {
+                return shell::excecute(command_name, command_args, executable.value());
+            }
         }
 
         std::cout << command_name << ": command not found\n";

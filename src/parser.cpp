@@ -7,7 +7,7 @@
 
 namespace shell
 {
-    std::vector<std::string> parse_command(const std::string& str, char delimeter)
+    std::vector<std::string> parse_command(const std::string& str, const char delimeter)
     {
         std::vector<std::string> tokens{};
 
@@ -41,19 +41,37 @@ namespace shell
             tokens.push_back(end);
         }
 
-        std::cout << '[' << tokens[0];
-        for (size_t i { 1 }; i < tokens.size(); ++i)
-        {
-            std::cout << ", " << tokens[i];
-        }
-        std::cout << "]\n";
+        // std::cout << '[' << tokens[0];
+        // for (size_t i { 1 }; i < tokens.size(); ++i)
+        // {
+        //     std::cout << ", " << tokens[i];
+        // }
+        // std::cout << "]\n";
 
         return tokens;
     }
 
     std::vector<std::string> parse_path(const std::string& str)
     {
+        const char delimeter { ':' };
         std::vector<std::string> dirs{};
+
+        std::size_t i{};
+        for (std::size_t j{}; j < str.length(); ++j)
+        {
+            if (str[j] == delimeter)
+            {
+                dirs.push_back(str.substr(i, j - i));
+                i = j + 1;
+                continue;   
+            }
+            if (str[i] == delimeter)
+            {
+                i = j;
+            }
+        }
+        dirs.push_back(str.substr(i));
+
         return dirs;
     }
 }
