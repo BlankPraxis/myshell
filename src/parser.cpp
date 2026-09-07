@@ -101,12 +101,7 @@ namespace shell
                     current_phrase.push_back(ch);
                 }
             }
-            if (current_phrase.empty() && str[str.length() - 1] == '"')
-            {
-                tokens.push_back({ .kind = TokenKind::WORD, .value = current_phrase });
-                current_phrase.clear();
-            }
-            else if (!current_phrase.empty())
+            if (!current_phrase.empty() | str.back() == '"')
             {
                 tokens.push_back({ .kind = TokenKind::WORD, .value = current_phrase });
                 current_phrase.clear();
@@ -153,8 +148,6 @@ namespace shell
     std::vector<std::string> parse_command(const std::string& str, const char delimeter)
     {
         std::vector<std::string> tokens{};
-
-        // ALMOST WORKS: handle empty token at end when > than 2 spaces are left at the end. and "" (example: echo "" hi) getting registered as empty tokens
 
         lex(str);
 
