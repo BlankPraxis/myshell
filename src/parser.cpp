@@ -101,7 +101,7 @@ namespace shell
                     current_phrase.push_back(ch);
                 }
             }
-            if (!current_phrase.empty() | str.back() == '"')
+            if (!current_phrase.empty() || str.back() == '"')
             {
                 tokens.push_back({ .kind = TokenKind::WORD, .value = current_phrase });
                 current_phrase.clear();
