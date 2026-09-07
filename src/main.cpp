@@ -79,13 +79,13 @@ int main()
         {
             continue;
         }
-        std::string command_name { parsed_command[0] };
-        std::vector<std::string> command_args(parsed_command.begin() + 1, parsed_command.end());
+        // std::string command_name { parsed_command[0] };
+        // std::vector<std::string> command_args(parsed_command.begin() + 1, parsed_command.end());
 
-        shell::Status state { shell::direct_to_command(command_name, command_args) };
+        // shell::Status state { shell::direct_to_command(command_name, command_args) };
         
-        if (state == shell::Status::EXIT) return EXIT_SUCCESS;
-        if (state == shell::Status::ERROR) return EXIT_FAILURE;
+        // if (state == shell::Status::EXIT) return EXIT_SUCCESS;
+        // if (state == shell::Status::ERROR) return EXIT_FAILURE;
     }
     return 0;
 }
