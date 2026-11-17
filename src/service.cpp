@@ -68,8 +68,8 @@ namespace shell
             return true;
         }
 
-        // Standalone builtins run in the parent so `cd`/`exit` affect the shell.
-        // Save and restore its descriptors around any redirections.
+        // standalone builtins run in the parent so `cd`/`exit` affect the shell.
+        // save and restore its descriptors around any redirections.
         class ParentRedirections
         {
         public:
@@ -145,7 +145,7 @@ namespace shell
             if (incoming != -1) close(incoming);
             if (outgoing != -1) close(outgoing);
 
-            // Explicit redirections take precedence over pipeline descriptors.
+            // explicit redirections take precedence over pipeline descriptors.
             if (!apply_redirections(command)) _exit(1);
 
             if (is_builtin(command.name))
@@ -185,7 +185,7 @@ namespace shell
                 return Status::CONTINUE;
             }
 
-            // Prevent buffered prompt/output from appearing twice after fork.
+            // prevent buffered prompt/output from appearing twice after fork.
             std::cout.flush();
             std::cerr.flush();
             const pid_t pid = fork();

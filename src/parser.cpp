@@ -24,7 +24,7 @@ namespace shell
             std::vector<Token> tokens;
             std::string word;
             QuoteState state{QuoteState::NORMAL};
-            bool word_started{false}; // Also preserves empty quoted arguments: "".
+            bool word_started{false}; // also preserves empty quoted arguments: "".
 
             auto finish_word = [&]() {
                 if (word_started)
@@ -46,7 +46,7 @@ namespace shell
                         throw std::invalid_argument("unfinished escape sequence");
                     }
                     const char next = input[i + 1];
-                    // Within double quotes, a backslash is only special before
+                    // within double quotes, a backslash is only special before
                     // $, `, ", \, or a newline (as in a POSIX shell).
                     if (state == QuoteState::DOUBLE_QUOTED &&
                         next != '$' && next != '`' && next != '"' &&

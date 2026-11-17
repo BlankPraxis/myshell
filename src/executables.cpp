@@ -26,7 +26,7 @@ namespace shell
                    access(candidate.c_str(), X_OK) == 0;
         };
 
-        // Explicit paths do not require PATH to exist.
+        // explicit paths do not require PATH to exist.
         if (command_to_find.find('/') != std::string::npos)
         {
             const fs::path candidate = command_to_find;
@@ -38,7 +38,7 @@ namespace shell
         if (!path_env) return std::nullopt;
         for (const std::string& dir : parse_path(path_env))
         {
-            // Empty PATH entries represent the current directory.
+            // empty PATH entries represent the current directory.
             const fs::path candidate = fs::path(dir.empty() ? "." : dir) / command_to_find;
             if (is_executable(candidate)) return candidate;
         }

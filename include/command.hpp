@@ -6,7 +6,7 @@
 
 namespace shell
 {
-    // One program or builtin, with redirections that apply only to this stage.
+    // one program or builtin, with redirections that apply only to this stage.
     struct Command
     {
         std::string name;
@@ -16,7 +16,7 @@ namespace shell
         bool append_output{false};
     };
 
-    // A command line is a series of commands connected by pipes.
+    // a command line is a series of commands connected by pipes.
     struct Pipeline
     {
         std::vector<Command> commands;
