@@ -1,9 +1,9 @@
-#include <string>
-#include <vector>
+#pragma once
 
+#include "command.hpp"
 #include "status.hpp"
 
 namespace shell
 {
-    shell::Status direct_to_command(const std::string& command_name, std::vector<std::string>& command_args);
-} 
+    Status execute_pipeline(const Pipeline& pipeline);
+}

@@ -1,112 +1,70 @@
 #include "executables.hpp"
 
+#include <cerrno>
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <optional>
 #include <string>
-#include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
 
-#include "status.hpp"
 #include "parser.hpp"
 
 namespace fs = std::filesystem;
 
 namespace shell
 {
-    namespace
-    {
-        std::vector<char*> convert_to_argv(const std::string& command_name, std::vector<std::string>& command_args)
-        {
-            std::vector<std::string> arg_storage{};
-            arg_storage.push_back(command_name);
-            for (const auto& arg : command_args)
-            {
-                arg_storage.push_back(arg);
-            }
-
-            std::vector<char *> argv{};
-            for (auto& arg : arg_storage)
-            {
-                argv.push_back(arg.data());
-            }
-            argv.push_back(nullptr);
-
-            return argv;
-        }
-    }
-
-
     std::optional<fs::path> find_executable(const std::string& command_to_find)
     {
-        const char *path_env { std::getenv("PATH") };
-        if (!path_env) return std::nullopt;
+        if (command_to_find.empty()) return std::nullopt;
 
-        std::string path_var { path_env };
-        std::vector<std::string> dirs { shell::parse_path(path_var) };
+        auto is_executable = [](const fs::path& candidate) {
+            std::error_code ec;
+            return fs::is_regular_file(candidate, ec) && !ec &&
+                   access(candidate.c_str(), X_OK) == 0;
+        };
 
-        fs::path candidate{};
-        if (command_to_find.find('/') == std::string::npos)
-        {    
-            for (const auto& dir : dirs)
-            {
-                candidate = fs::path(dir) / command_to_find;
-                if (fs::exists(candidate) && fs::is_regular_file(candidate) && access(candidate.c_str() , X_OK) == 0)
-                {
-                    return candidate;
-                }
-            }
-        }
-        else
+        // Explicit paths do not require PATH to exist.
+        if (command_to_find.find('/') != std::string::npos)
         {
-            candidate = command_to_find;
-            if (fs::exists(candidate) && fs::is_regular_file(candidate) && access(candidate.c_str(), X_OK) == 0)
-            {
-                return candidate;
-            }
+            const fs::path candidate = command_to_find;
+            if (is_executable(candidate)) return candidate;
+            return std::nullopt;
         }
 
+        const char* path_env = std::getenv("PATH");
+        if (!path_env) return std::nullopt;
+        for (const std::string& dir : parse_path(path_env))
+        {
+            // Empty PATH entries represent the current directory.
+            const fs::path candidate = fs::path(dir.empty() ? "." : dir) / command_to_find;
+            if (is_executable(candidate)) return candidate;
+        }
         return std::nullopt;
     }
 
-    shell::Status excecute(const std::string& command_name, std::vector<std::string>& command_args, fs::path executable)
+    [[noreturn]] void execute_external(const Command& command)
     {
-        std::vector<std::string> arg_storage{};
-        arg_storage.push_back(command_name);
-        for (const auto& arg : command_args)
+        const auto executable = find_executable(command.name);
+        if (!executable)
         {
-            arg_storage.push_back(arg);
+            std::cerr << command.name << ": command not found\n" << std::flush;
+            _exit(127);
         }
 
-        std::vector<char *> argv{};
-        for (auto& arg : arg_storage)
-        {
-            argv.push_back(arg.data());
-        }
+        // argv points at strings owned by Command, which stay alive until execv.
+        std::vector<char*> argv;
+        argv.reserve(command.args.size() + 2);
+        argv.push_back(const_cast<char*>(command.name.c_str()));
+        for (const std::string& arg : command.args)
+            argv.push_back(const_cast<char*>(arg.c_str()));
         argv.push_back(nullptr);
-        
-        pid_t pid { fork() };
 
-        if (pid < 0)
-        {
-            std::cout << "shell: fork failed\n";
-            return shell::Status::CONTINUE;
-        }
-        if (pid == 0)
-        {
-            execv(executable.c_str(), argv.data());
-            
-            std::perror("shell: exec");
-            _exit(1);
-        }
-        else
-        {
-            int status;
-            waitpid(pid, &status, 0);
-        }
-
-        return shell::Status::CONTINUE;
+        execv(executable->c_str(), argv.data());
+        const int error = errno;
+        std::perror(("shell: " + command.name).c_str());
+        _exit(error == ENOENT ? 127 : 126);
     }
 }

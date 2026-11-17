@@ -1,8 +1,9 @@
 #include "parser.hpp"
 
-#include <cstddef>
-#include <iostream>
+#include <cctype>
+#include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "tokens.hpp"
@@ -11,218 +12,173 @@ namespace shell
 {
     namespace
     {
-        enum class TokenState
+        enum class QuoteState
         {
             NORMAL,
-            DOUBLE_QUOTED,
+            SINGLE_QUOTED,
+            DOUBLE_QUOTED
         };
 
-        std::vector<Token> lex(const std::string& str)
+        std::vector<Token> lex(const std::string& input)
         {
-            std::vector<Token> tokens{};
+            std::vector<Token> tokens;
+            std::string word;
+            QuoteState state{QuoteState::NORMAL};
+            bool word_started{false}; // Also preserves empty quoted arguments: "".
 
-            std::string current_phrase{};
-            TokenState state { TokenState::NORMAL };
-
-            for (std::size_t i{}; i < str.length(); ++i)
-            {
-                char ch { str[i] };
-                
-                if (ch == ' ')
+            auto finish_word = [&]() {
+                if (word_started)
                 {
-                    if (i - 1 > 0 && str[i - 1] == '"' && state == TokenState::NORMAL && current_phrase.empty())
-                    {
-                        tokens.push_back({ .kind = TokenKind::WORD, .value = current_phrase });
-                        continue;
-                    }
-                    if (state != TokenState::NORMAL || current_phrase.empty())
-                    {
-                        if (state == TokenState::DOUBLE_QUOTED)
-                        {
-                            current_phrase.push_back(ch);
-                        }
-                        
-                        continue;
-                    }
-
-                    tokens.push_back({ .kind = TokenKind::WORD, .value = current_phrase });
-                    current_phrase.clear();
+                    tokens.push_back({TokenKind::WORD, std::move(word)});
+                    word.clear();
+                    word_started = false;
                 }
-                else if (ch == '"')
+            };
+
+            for (std::size_t i = 0; i < input.size(); ++i)
+            {
+                const char ch = input[i];
+
+                if (ch == '\\' && state != QuoteState::SINGLE_QUOTED)
                 {
-                    if (state == TokenState::DOUBLE_QUOTED)
+                    if (i + 1 == input.size())
                     {
-                        state = TokenState::NORMAL;
+                        throw std::invalid_argument("unfinished escape sequence");
+                    }
+                    const char next = input[i + 1];
+                    // Within double quotes, a backslash is only special before
+                    // $, `, ", \, or a newline (as in a POSIX shell).
+                    if (state == QuoteState::DOUBLE_QUOTED &&
+                        next != '$' && next != '`' && next != '"' &&
+                        next != '\\' && next != '\n')
+                    {
+                        word.push_back('\\');
                     }
                     else
                     {
-                        state = TokenState::DOUBLE_QUOTED;
+                        if (next != '\n') word.push_back(next);
+                        ++i;
                     }
+                    word_started = true;
+                }
+                else if (state == QuoteState::SINGLE_QUOTED)
+                {
+                    if (ch == '\'') state = QuoteState::NORMAL;
+                    else word.push_back(ch);
+                }
+                else if (state == QuoteState::DOUBLE_QUOTED)
+                {
+                    if (ch == '"') state = QuoteState::NORMAL;
+                    else word.push_back(ch);
+                }
+                else if (ch == '\'' || ch == '"')
+                {
+                    state = ch == '\'' ? QuoteState::SINGLE_QUOTED : QuoteState::DOUBLE_QUOTED;
+                    word_started = true;
+                }
+                else if (std::isspace(static_cast<unsigned char>(ch)))
+                {
+                    finish_word();
                 }
                 else if (ch == '|' || ch == '>' || ch == '<')
                 {
-                    if (state != TokenState::NORMAL)
+                    finish_word();
+                    if (ch == '|') tokens.push_back({TokenKind::PIPE, "|"});
+                    else if (ch == '<') tokens.push_back({TokenKind::REDIRECT_IN, "<"});
+                    else if (i + 1 < input.size() && input[i + 1] == '>')
                     {
-                        current_phrase.push_back(ch);
-                        continue;
+                        tokens.push_back({TokenKind::REDIRECT_APPEND, ">>"});
+                        ++i;
                     }
-
-                    if (!current_phrase.empty() ||  i - 1 > 0 && (current_phrase.empty() && str[i - 1] == '"'))
-                    {
-                        tokens.push_back({ .kind = TokenKind::WORD, .value = current_phrase });
-                        current_phrase.clear();
-                    }
-
-                    switch (ch)
-                    {
-                        case '|':
-                            tokens.push_back({ .kind = TokenKind::PIPE, .value = "|"});
-                            break; 
-                        case '>':
-                            if (i + 1 < str.length() && str[i + 1] == '>')
-                            {
-                                tokens.push_back({ .kind = TokenKind::REDIRECT_APPEND, .value = ">>" });
-                                if (i + 1 < str.length())
-                                {
-                                    ++i;
-                                }
-                                break;
-                            }
-                            
-                            tokens.push_back({ .kind = TokenKind::REDIRECT_OUT, .value = ">"});
-                            break; 
-                        case '<':
-                            tokens.push_back({ .kind = TokenKind::REDIRECT_IN, .value = "<" });
-                            break;
-                    }
+                    else tokens.push_back({TokenKind::REDIRECT_OUT, ">"});
                 }
                 else
                 {
-                    current_phrase.push_back(ch);
+                    word.push_back(ch);
+                    word_started = true;
                 }
             }
-            if (!current_phrase.empty() || str.back() == '"')
-            {
-                tokens.push_back({ .kind = TokenKind::WORD, .value = current_phrase });
-                current_phrase.clear();
-            }
 
-            // HANDLES PRINTING FOR DEBUGGING
-            if (!tokens.empty())
+            if (state != QuoteState::NORMAL)
             {
-                std::cout << "[\n";
-                for (const auto& token : tokens)
-                {
-                    switch (token.kind)
-                    {
-                        case TokenKind::WORD:
-                            std::cout << "WORD(\"";
-                            break;
-                        case TokenKind::PIPE:
-                            std::cout << "PIPE(\"";
-                            break;
-                        case TokenKind::REDIRECT_IN:
-                            std::cout << "REDIRECT_IN(\"";
-                            break;
-                        case TokenKind::REDIRECT_OUT:
-                            std::cout << "REDIRECT_OUT(\"";
-                            break;
-                        case TokenKind::REDIRECT_APPEND:
-                            std::cout << "REDIRECT_APPEND(\"";
-                            break;
-                    }
-                    std::cout << token.value << "\")\n";
-                }
-                std::cout << "]\n";
+                throw std::invalid_argument("unterminated quoted string");
             }
-            else
-            {
-                std::cout << "[]\n";
-            }
-            //-----------------------------------
-
+            finish_word();
             return tokens;
         }
     }
 
-    std::vector<std::string> parse_command(const std::string& str, const char delimeter)
+    Pipeline parse_command(const std::string& input)
     {
-        std::vector<std::string> tokens{};
+        const std::vector<Token> tokens = lex(input);
+        Pipeline pipeline;
+        Command current;
+        bool has_command{false};
 
-        lex(str);
-
-        // bool is_quoted = { false };
-        // std::string temp_token{};
-        // for (std::size_t i{}; i < str.length(); ++i)
-        // {
-        //     if (i == str.length() - 1)
-        //     {
-        //         if (str[i] != delimeter && str[i] != '"')
-        //         {
-        //             temp_token.push_back(str[i]);
-        //         }
-
-        //         tokens.push_back(temp_token);
-        //         temp_token.clear();
-        //         continue;
-        //     }
-
-        //     if (str[i] != delimeter)
-        //     {
-        //         if (str[i] == '"')
-        //         {
-        //             is_quoted = not is_quoted;
-        //             continue;
-        //         }
-
-        //         temp_token.push_back(str[i]);
-        //         continue;
-        //     }
-
-        //     if (!is_quoted)
-        //     {
-        //         if (temp_token.empty())
-        //         {
-        //             continue;
-        //         }
-        //         tokens.push_back(temp_token);
-        //         temp_token.clear();
-        //     }
-        // }
-
-        // printing the args in a table format: //
-        // std::cout << '[' << tokens[0];
-        // for (size_t i { 1 }; i < tokens.size(); ++i)
-        // {
-        //     std::cout << ", " << tokens[i];
-        // }
-        // std::cout << "]\n";
-
-        return tokens;
-    }
-
-    std::vector<std::string> parse_path(const std::string& str)
-    {
-        const char delimeter { ':' };
-        std::vector<std::string> dirs{};
-
-        std::size_t i{};
-        for (std::size_t j{}; j < str.length(); ++j)
+        for (std::size_t i = 0; i < tokens.size(); ++i)
         {
-            if (str[j] == delimeter)
+            const Token& token = tokens[i];
+            switch (token.kind)
             {
-                dirs.push_back(str.substr(i, j - i));
-                i = j + 1;
-                continue;   
-            }
-            if (str[i] == delimeter)
-            {
-                i = j;
+                case TokenKind::WORD:
+                    if (!has_command)
+                    {
+                        current.name = token.value;
+                        has_command = true;
+                    }
+                    else current.args.push_back(token.value);
+                    break;
+
+                case TokenKind::PIPE:
+                    if (!has_command || current.name.empty())
+                        throw std::invalid_argument("missing command before pipe");
+                    pipeline.commands.push_back(std::move(current));
+                    current = Command{};
+                    has_command = false;
+                    break;
+
+                case TokenKind::REDIRECT_IN:
+                case TokenKind::REDIRECT_OUT:
+                case TokenKind::REDIRECT_APPEND:
+                    if (++i >= tokens.size() || tokens[i].kind != TokenKind::WORD)
+                        throw std::invalid_argument("expected filename after '" + token.value + "'");
+                    if (token.kind == TokenKind::REDIRECT_IN)
+                        current.input_redirect = tokens[i].value;
+                    else
+                    {
+                        current.output_redirect = tokens[i].value;
+                        current.append_output = token.kind == TokenKind::REDIRECT_APPEND;
+                    }
+                    break;
             }
         }
-        dirs.push_back(str.substr(i));
 
+        if (has_command && !current.name.empty())
+        {
+            pipeline.commands.push_back(std::move(current));
+        }
+        else if (!tokens.empty())
+        {
+            throw std::invalid_argument("missing command at end of input");
+        }
+        return pipeline;
+    }
+
+    std::vector<std::string> parse_path(const std::string& path)
+    {
+        std::vector<std::string> dirs;
+        std::size_t start = 0;
+        while (true)
+        {
+            const std::size_t end = path.find(':', start);
+            if (end == std::string::npos)
+            {
+                dirs.push_back(path.substr(start));
+                break;
+            }
+            dirs.push_back(path.substr(start, end - start));
+            start = end + 1;
+        }
         return dirs;
     }
 }
-

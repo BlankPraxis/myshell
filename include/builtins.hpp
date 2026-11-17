@@ -8,9 +8,9 @@
 namespace shell
 {
     std::vector<std::string> builtin_commands();
-    shell::Status exit(std::vector<std::string>& args);
-    shell::Status echo(std::vector<std::string>& args);
-    shell::Status pwd();
-    shell::Status cd(std::vector<std::string>& args);
-    shell::Status type(std::vector<std::string>& args);
-} 
+    Status exit(const std::vector<std::string>& args);
+    Status echo(const std::vector<std::string>& args);
+    Status pwd();
+    Status cd(const std::vector<std::string>& args);
+    Status type(const std::vector<std::string>& args);
+}

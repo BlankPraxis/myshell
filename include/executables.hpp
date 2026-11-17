@@ -1,14 +1,16 @@
-#include <optional>
+#pragma once
+
 #include <filesystem>
+#include <optional>
 #include <string>
-#include <vector>
 
-#include "status.hpp"
-
-namespace fs = std::filesystem;
+#include "command.hpp"
 
 namespace shell
 {
-    std::optional<fs::path> find_executable(const std::string& command_to_find);
-    shell::Status excecute(const std::string& command_name, std::vector<std::string>& command_args, fs::path executable);
+    std::optional<std::filesystem::path> find_executable(const std::string& command_to_find);
+
+    // Called only from a forked child. Replaces the child with an executable;
+    // reports an error and exits the child if the executable cannot start.
+    [[noreturn]] void execute_external(const Command& command);
 }

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <string>
 
 namespace shell
@@ -16,6 +18,4 @@ namespace shell
         TokenKind kind;
         std::string value;
     };
-
-    // token_t t {.kind = TokenKind::WORD, .value = ""};
 }

@@ -1,14 +1,13 @@
 #include "builtins.hpp"
 
 #include <algorithm>
-#include <cstddef>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <string>
 #include <system_error>
 #include <vector>
 
-#include "status.hpp"
 #include "executables.hpp"
 
 namespace fs = std::filesystem;
@@ -17,99 +16,67 @@ namespace shell
 {
     std::vector<std::string> builtin_commands()
     {
-        return std::vector<std::string> {
-            "exit",
-            "echo",
-            "pwd",
-            "cd",
-            "type"
-        };
+        return {"exit", "echo", "pwd", "cd", "type"};
     }
 
-    shell::Status exit(std::vector<std::string>& args)
+    Status exit(const std::vector<std::string>& args)
     {
-        if (args.empty() || args[0] == "0")
-        {
-            return shell::Status::EXIT;
-        }
-        return shell::Status::ERROR;
+        if (args.empty() || args[0] == "0") return Status::EXIT;
+        return Status::ERROR;
     }
 
-    shell::Status echo(std::vector<std::string>& args)
+    Status echo(const std::vector<std::string>& args)
     {
-        if (args.empty()) 
+        for (std::size_t i = 0; i < args.size(); ++i)
         {
-            std::cout << '\n';
-            return shell::Status::CONTINUE;
+            if (i) std::cout << ' ';
+            std::cout << args[i];
         }
-        
-        std::cout << args[0];
-        for (std::size_t i { 1 }; i < args.size(); ++i)
-        {
-            std::cout << ' ' << args[i];
-        }
-        std::cout << std::endl;
-        return shell::Status::CONTINUE;
+        std::cout << '\n';
+        return Status::CONTINUE;
     }
 
-    shell::Status pwd()
+    Status pwd()
     {
         std::cout << fs::current_path().string() << '\n';
-        return shell::Status::CONTINUE;
+        return Status::CONTINUE;
     }
 
-    shell::Status cd(std::vector<std::string>& args)
+    Status cd(const std::vector<std::string>& args)
     {
-        std::error_code ec;
-        std::string path {};
-        if (args.empty())
+        std::string path;
+        if (args.empty() || args[0] == "~" || args[0].rfind("~/", 0) == 0)
         {
-            path = "/home/whoischristian/";
-        }
-        else if (args[0] == "~")
-        {
-            path = "/home/whoischristian/";
-        }
-        if (path.empty())
-        {
-            fs::path new_dir { args[0] };
-            fs::current_path(new_dir, ec);
-            if (ec)
+            const char* home = std::getenv("HOME");
+            if (!home)
             {
-                std::cerr << "shell: cd: " << args[0] << ": No such file or directory\n";
+                std::cerr << "shell: cd: HOME not set\n";
+                return Status::CONTINUE;
             }
-            return shell::Status::CONTINUE;
+            path = home;
+            if (!args.empty() && args[0].size() > 1) path += args[0].substr(1);
         }
-        fs::path new_dir { path };
-        fs::current_path(new_dir, ec);
-        if (ec)
-        {
-            std::cerr << "shell: cd: " << args[0] << ": No such file or directory\n";
-        }
-        return shell::Status::CONTINUE;
+        else path = args[0];
+
+        std::error_code ec;
+        fs::current_path(fs::path(path), ec);
+        if (ec) std::cerr << "shell: cd: " << path << ": " << ec.message() << '\n';
+        return Status::CONTINUE;
     }
 
-    shell::Status type(std::vector<std::string>& args)
+    Status type(const std::vector<std::string>& args)
     {
-        if (args.empty()) return shell::Status::CONTINUE;
-
-        std::vector<std::string> builtins { builtin_commands() };
+        if (args.empty()) return Status::CONTINUE;
+        const std::vector<std::string> builtins = builtin_commands();
         if (std::find(builtins.begin(), builtins.end(), args[0]) != builtins.end())
         {
             std::cout << args[0] << " is a shell builtin\n";
-            return shell::Status::CONTINUE; 
         }
-        else
+        else if (auto executable = find_executable(args[0]))
         {
-            auto executable { shell::find_executable(args[0]) };
-            if (executable)
-            {
-                std::cout << args[0] << " is " << executable->string() << '\n';
-                return shell::Status::CONTINUE;
-            }
+            std::cout << args[0] << " is " << executable->string() << '\n';
         }
-
-        std::cout << "shell: type: " << args[0] << ": not found\n";
-        return shell::Status::CONTINUE;
+        else std::cout << "shell: type: " << args[0] << ": not found\n";
+        return Status::CONTINUE;
     }
 }
